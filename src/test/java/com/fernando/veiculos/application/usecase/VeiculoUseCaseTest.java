@@ -1,0 +1,133 @@
+package com.fernando.veiculos.application.usecase;
+
+import com.fernando.veiculos.application.port.out.CurrencyConversionPortOut;
+import com.fernando.veiculos.application.port.out.VeiculoPortOut;
+import com.fernando.veiculos.domain.exception.BusinessException;
+import com.fernando.veiculos.domain.exception.DuplicatePlacaException;
+import com.fernando.veiculos.domain.model.Veiculo;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class VeiculoUseCaseTest {
+
+    private static final BigDecimal COTACAO = new BigDecimal("5.00");
+
+    @Mock
+    private VeiculoPortOut veiculoPortOut;
+
+    @Mock
+    private CurrencyConversionPortOut currencyConversionPortOut;
+
+    private VeiculoUseCase useCase;
+
+    @BeforeEach
+    void setUp() {
+        useCase = new VeiculoUseCase(veiculoPortOut, currencyConversionPortOut);
+    }
+
+    @Test
+    void deveBloquearCadastroComPlacaDuplicada() {
+        when(veiculoPortOut.findByPlaca("ABC1D23")).thenReturn(Optional.of(veiculo("ABC1D23")));
+
+        assertThatThrownBy(() -> useCase.cadastrar(veiculo("abc1d23")))
+                .isInstanceOf(DuplicatePlacaException.class)
+                .hasMessageContaining("ABC1D23");
+
+        verify(veiculoPortOut, never()).save(any());
+        verifyNoInteractions(currencyConversionPortOut);
+    }
+
+    @Test
+    void deveValidarRangeDePrecoAntesDeConsultarRepositorio() {
+        assertThatThrownBy(() -> useCase.buscar(null, null, null,
+                new BigDecimal("20000.00"), new BigDecimal("10000.00"), PageRequest.of(0, 20)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("minPreco nao pode ser maior que maxPreco");
+
+        verifyNoInteractions(veiculoPortOut, currencyConversionPortOut);
+    }
+
+    @Test
+    void deveValidarPatchVazioAntesDeBuscarVeiculo() {
+        assertThatThrownBy(() -> useCase.atualizarParcial(UUID.randomUUID(), Veiculo.builder().build()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("informe ao menos um campo para atualizar");
+
+        verifyNoInteractions(veiculoPortOut, currencyConversionPortOut);
+    }
+
+    @Test
+    void deveAplicarCotacaoUmaVezNaListagem() {
+        PageRequest pageable = PageRequest.of(0, 20);
+        when(currencyConversionPortOut.obterCotacaoUsdParaBrl()).thenReturn(COTACAO);
+        when(veiculoPortOut.findAll(eq("Honda"), eq(2021), eq("Preto"),
+                eq(null), eq(null), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(veiculo("ABC1D23"), veiculo("DEF2E34"))));
+
+        var resultado = useCase.buscar("Honda", 2021, "Preto", null, null, pageable);
+
+        assertThat(resultado.getContent())
+                .extracting(Veiculo::getPrecoBrl)
+                .containsExactly(new BigDecimal("50000.00"), new BigDecimal("50000.00"));
+        verify(currencyConversionPortOut).obterCotacaoUsdParaBrl();
+    }
+
+    @Test
+    void deveAtualizarParcialmenteSomenteCamposInformados() {
+        UUID id = UUID.randomUUID();
+        Veiculo atual = veiculo("ABC1D23");
+        Veiculo patch = Veiculo.builder()
+                .cor("Prata")
+                .precoUsd(new BigDecimal("12000.00"))
+                .build();
+
+        when(veiculoPortOut.findById(id)).thenReturn(Optional.of(atual));
+        when(veiculoPortOut.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(currencyConversionPortOut.obterCotacaoUsdParaBrl()).thenReturn(COTACAO);
+
+        Veiculo atualizado = useCase.atualizarParcial(id, patch);
+
+        assertThat(atualizado.getPlaca()).isEqualTo("ABC1D23");
+        assertThat(atualizado.getCor()).isEqualTo("Prata");
+        assertThat(atualizado.getPrecoUsd()).isEqualByComparingTo("12000.00");
+        assertThat(atualizado.getPrecoBrl()).isEqualByComparingTo("60000.00");
+
+        ArgumentCaptor<Veiculo> captor = ArgumentCaptor.forClass(Veiculo.class);
+        verify(veiculoPortOut).save(captor.capture());
+        assertThat(captor.getValue().getModelo()).isEqualTo("Civic");
+    }
+
+    private Veiculo veiculo(String placa) {
+        return Veiculo.builder()
+                .id(UUID.randomUUID())
+                .placa(placa)
+                .marca("Honda")
+                .modelo("Civic")
+                .ano(2021)
+                .cor("Preto")
+                .precoUsd(new BigDecimal("10000.00"))
+                .ativo(true)
+                .build();
+    }
+}

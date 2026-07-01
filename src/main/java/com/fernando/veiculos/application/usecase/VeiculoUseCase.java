@@ -17,6 +17,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Service
 public class VeiculoUseCase implements VeiculoPortIn {
@@ -44,16 +45,14 @@ public class VeiculoUseCase implements VeiculoPortIn {
     @Override
     @Transactional(readOnly = true)
     public Veiculo buscarPorId(UUID id) {
-        return aplicarPrecoBrl(veiculoPortOut.findById(id).orElseThrow(() -> new VeiculoNotFoundException(id)));
+        return aplicarPrecoBrl(obterVeiculoAtivo(id));
     }
 
     @Override
     @Transactional
     public Veiculo cadastrar(Veiculo veiculo) {
         String placa = normalizarPlaca(veiculo.getPlaca());
-        veiculoPortOut.findByPlaca(placa).ifPresent(v -> {
-            throw new DuplicatePlacaException(placa);
-        });
+        garantirPlacaDisponivel(null, placa);
 
         Instant now = Instant.now();
         veiculo.setId(null);
@@ -67,16 +66,11 @@ public class VeiculoUseCase implements VeiculoPortIn {
     @Override
     @Transactional
     public Veiculo atualizar(UUID id, Veiculo veiculo) {
-        Veiculo atual = buscarPorId(id);
+        Veiculo atual = obterVeiculoAtivo(id);
         String placa = normalizarPlaca(veiculo.getPlaca());
         garantirPlacaDisponivel(id, placa);
 
-        atual.setPlaca(placa);
-        atual.setMarca(veiculo.getMarca());
-        atual.setModelo(veiculo.getModelo());
-        atual.setAno(veiculo.getAno());
-        atual.setCor(veiculo.getCor());
-        atual.setPrecoUsd(veiculo.getPrecoUsd());
+        atualizarCamposObrigatorios(atual, veiculo, placa);
         atual.setUpdatedAt(Instant.now());
         return aplicarPrecoBrl(veiculoPortOut.save(atual));
     }
@@ -85,28 +79,18 @@ public class VeiculoUseCase implements VeiculoPortIn {
     @Transactional
     public Veiculo atualizarParcial(UUID id, Veiculo veiculoParcial) {
         validarPatch(veiculoParcial);
-        Veiculo atual = buscarPorId(id);
+        Veiculo atual = obterVeiculoAtivo(id);
 
         if (veiculoParcial.getPlaca() != null) {
             String placa = normalizarPlaca(veiculoParcial.getPlaca());
             garantirPlacaDisponivel(id, placa);
             atual.setPlaca(placa);
         }
-        if (veiculoParcial.getMarca() != null) {
-            atual.setMarca(veiculoParcial.getMarca());
-        }
-        if (veiculoParcial.getModelo() != null) {
-            atual.setModelo(veiculoParcial.getModelo());
-        }
-        if (veiculoParcial.getAno() != null) {
-            atual.setAno(veiculoParcial.getAno());
-        }
-        if (veiculoParcial.getCor() != null) {
-            atual.setCor(veiculoParcial.getCor());
-        }
-        if (veiculoParcial.getPrecoUsd() != null) {
-            atual.setPrecoUsd(veiculoParcial.getPrecoUsd());
-        }
+        atualizarSeInformado(veiculoParcial.getMarca(), atual::setMarca);
+        atualizarSeInformado(veiculoParcial.getModelo(), atual::setModelo);
+        atualizarSeInformado(veiculoParcial.getAno(), atual::setAno);
+        atualizarSeInformado(veiculoParcial.getCor(), atual::setCor);
+        atualizarSeInformado(veiculoParcial.getPrecoUsd(), atual::setPrecoUsd);
 
         atual.setUpdatedAt(Instant.now());
         return aplicarPrecoBrl(veiculoPortOut.save(atual));
@@ -115,7 +99,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
     @Override
     @Transactional
     public void remover(UUID id) {
-        buscarPorId(id);
+        obterVeiculoAtivo(id);
         veiculoPortOut.softDelete(id);
     }
 
@@ -127,7 +111,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
 
     private void garantirPlacaDisponivel(UUID idAtual, String placa) {
         veiculoPortOut.findByPlaca(placa)
-                .filter(v -> !v.getId().equals(idAtual))
+                .filter(v -> idAtual == null || !v.getId().equals(idAtual))
                 .ifPresent(v -> {
                     throw new DuplicatePlacaException(placa);
                 });
@@ -156,6 +140,25 @@ public class VeiculoUseCase implements VeiculoPortIn {
 
         if (vazio) {
             throw new BusinessException("informe ao menos um campo para atualizar");
+        }
+    }
+
+    private Veiculo obterVeiculoAtivo(UUID id) {
+        return veiculoPortOut.findById(id).orElseThrow(() -> new VeiculoNotFoundException(id));
+    }
+
+    private void atualizarCamposObrigatorios(Veiculo atual, Veiculo dados, String placa) {
+        atual.setPlaca(placa);
+        atual.setMarca(dados.getMarca());
+        atual.setModelo(dados.getModelo());
+        atual.setAno(dados.getAno());
+        atual.setCor(dados.getCor());
+        atual.setPrecoUsd(dados.getPrecoUsd());
+    }
+
+    private <T> void atualizarSeInformado(T valor, Consumer<T> atualizador) {
+        if (valor != null) {
+            atualizador.accept(valor);
         }
     }
 

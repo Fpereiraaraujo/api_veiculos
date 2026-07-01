@@ -10,6 +10,7 @@ import com.fernando.veiculos.framework.in.mapper.VeiculoHttpMapper;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,13 +42,15 @@ public class VeiculoController {
     }
 
     @GetMapping
-    public Page<VeiculoResponseDTO> buscar(@RequestParam(required = false) String marca,
-                                           @RequestParam(required = false) Integer ano,
-                                           @RequestParam(required = false) String cor,
-                                           @RequestParam(required = false) BigDecimal minPreco,
-                                           @RequestParam(required = false) BigDecimal maxPreco,
-                                           @PageableDefault(size = 20, sort = "marca") Pageable pageable) {
-        return veiculoPortIn.buscar(marca, ano, cor, minPreco, maxPreco, pageable).map(mapper::toResponse);
+    public PagedModel<VeiculoResponseDTO> buscar(@RequestParam(required = false) String marca,
+                                                 @RequestParam(required = false) Integer ano,
+                                                 @RequestParam(required = false) String cor,
+                                                 @RequestParam(required = false) BigDecimal minPreco,
+                                                 @RequestParam(required = false) BigDecimal maxPreco,
+                                                 @PageableDefault(size = 20, sort = "marca") Pageable pageable) {
+        Page<VeiculoResponseDTO> veiculos = veiculoPortIn.buscar(marca, ano, cor, minPreco, maxPreco, pageable)
+                .map(mapper::toResponse);
+        return new PagedModel<>(veiculos);
     }
 
     @GetMapping("/{id}")

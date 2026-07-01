@@ -3,6 +3,8 @@ package com.fernando.veiculos.framework.out.client.currency;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fernando.veiculos.application.port.out.CurrencyConversionPortOut;
 import com.fernando.veiculos.domain.exception.CurrencyConversionException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +32,8 @@ public class CurrencyConversionAdapter implements CurrencyConversionPortOut {
     }
 
     @Override
+    @Retry(name = "currencyApi")
+    @CircuitBreaker(name = "currencyApi")
     @Cacheable(cacheNames = "dollarQuote", key = "'USD_BRL'", cacheManager = "redisCacheManager")
     public BigDecimal obterCotacaoUsdParaBrl() {
         try {
@@ -45,11 +49,7 @@ public class CurrencyConversionAdapter implements CurrencyConversionPortOut {
     }
 
     private BigDecimal obterCotacaoAwesomeApi() {
-        JsonNode response = restClient.get()
-                .uri(primaryUrl)
-                .retrieve()
-                .body(JsonNode.class);
-
+        JsonNode response = consultar(primaryUrl);
         JsonNode bid = response == null ? null : response.path("USDBRL").path("bid");
         if (bid == null || bid.isMissingNode() || bid.asText().isBlank()) {
             throw new IllegalStateException("resposta invalida da AwesomeAPI");
@@ -58,15 +58,18 @@ public class CurrencyConversionAdapter implements CurrencyConversionPortOut {
     }
 
     private BigDecimal obterCotacaoFrankfurter() {
-        JsonNode response = restClient.get()
-                .uri(fallbackUrl)
-                .retrieve()
-                .body(JsonNode.class);
-
+        JsonNode response = consultar(fallbackUrl);
         JsonNode brl = response == null ? null : response.path("rates").path("BRL");
         if (brl == null || brl.isMissingNode() || !brl.isNumber()) {
             throw new IllegalStateException("resposta invalida da Frankfurter");
         }
         return brl.decimalValue();
+    }
+
+    private JsonNode consultar(String url) {
+        return restClient.get()
+                .uri(url)
+                .retrieve()
+                .body(JsonNode.class);
     }
 }

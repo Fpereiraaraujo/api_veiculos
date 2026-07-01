@@ -1,111 +1,133 @@
-================================================================================
-VEICULOS API - Desafio Tecnico Tinnova
-================================================================================
+# Veiculos API - Desafio Tinnova
 
-1. SOBRE O PROJETO
-API REST para gerenciamento de veiculos, com controle de acesso baseado em
-papeis (USER/ADMIN), preco armazenado em dolar (cotacao obtida em tempo real,
-com fallback e cache), e arquitetura hexagonal (Ports and Adapters).
+API REST para gerenciamento de veiculos usando Java 21, Spring Boot 3.4.2 e arquitetura hexagonal.
 
-Este README e atualizado a cada etapa de desenvolvimento.
+## Recursos Entregues
 
---------------------------------------------------------------------------------
-2. STACK E DECISOES DE ENGENHARIA (etapa 1 - setup)
---------------------------------------------------------------------------------
+- CRUD de veiculos com soft delete.
+- Listagem com filtros por `marca`, `ano`, `cor`, `minPreco`, `maxPreco`, paginacao e ordenacao.
+- Relatorio de quantidade de veiculos por marca.
+- Autenticacao JWT com perfis `USER` e `ADMIN`.
+- `USER`: leitura de veiculos.
+- `ADMIN`: cadastro, atualizacao, remocao e leitura.
+- Preco persistido em dolar (`precoUsd`) e retornado tambem em real (`precoBrl`).
+- Cotacao USD-BRL pela AwesomeAPI, com fallback para Frankfurter.
+- Cache Redis para cotacao.
+- Retry e circuit breaker com Resilience4j no adapter de cambio.
+- Swagger UI com esquema Bearer JWT.
+- Tratamento padronizado de erros.
+- Testes unitarios de regra de negocio e testes MVC de seguranca/erros.
 
-- Java 21 + Spring Boot 3.4.2
-  -> Optei por 3.4.x em vez do recem-lancado Spring Boot 4 (GA nov/2025).
-     O Boot 4 renomeou starters (web -> webmvc) e o ecossistema de libs que
-     vamos usar aqui (resilience4j-spring-boot3, springdoc, testcontainers)
-     ainda esta estabilizando compatibilidade total. Para um desafio com
-     prazo de avaliacao, preferi estabilidade de build a usar a versao mais
-     nova. Dá pra migrar para o Boot 4 depois, se fizer sentido.
+## Arquitetura
 
-- Arquitetura Hexagonal:
-    domain/            -> modelo de negocio puro, sem anotacao de framework
-    application/port/  -> contratos (in = entrada, out = saida)
-    application/usecase/ -> regras de negocio (implementa as portas de entrada)
-    framework/in/       -> controllers, DTOs, exception handler (adapters de entrada)
-    framework/out/      -> JPA, clients HTTP externos (adapters de saida)
-    infrastructure/     -> configuracao tecnica (security, cache, openapi)
+```text
+domain/                 modelo e exceptions de negocio
+application/port/in      portas de entrada
+application/port/out     portas de saida
+application/usecase      casos de uso e regras de aplicacao
+framework/in             controllers, DTOs, mappers, exception handler
+framework/out            adapters JPA e clients HTTP externos
+infrastructure           configuracoes tecnicas de security, cache e OpenAPI
+```
 
-- Persistencia: Spring Data JPA + PostgreSQL. Pool de conexoes via HikariCP
-  (auto-configurado pelo Spring Boot, tuning explicito em application.yml).
+## Executando Com Docker
 
-- Seguranca: Spring Security + JWT (lib jjwt). Estrutura da cadeia de filtros
-  ja criada; a logica real de autenticacao/autorizacao fica para uma etapa
-  dedicada (ver roadmap). Ate la os endpoints ficam liberados de proposito,
-  pra nao travar o desenvolvimento de persistencia/regras de negocio.
+```bash
+docker compose up --build -d
+```
 
-- Cache em 2 camadas para a cotacao do dolar:
-    L1 Caffeine (in-memory, baixa latencia) - cache primario via @Cacheable
-    L2 Redis (distribuido) - usado pelo client de cambio como camada extra,
-    relevante se a API escalar horizontalmente
-  Ambos ja configurados em CacheConfig.
+Servicos:
 
-- Resiliencia: Resilience4j (circuit breaker + retry + timeout) protegendo
-  as chamadas as APIs externas de cambio (AwesomeAPI / Frankfurter como
-  fallback). Configuracao base ja em application.yml; uso real (anotacoes
-  @CircuitBreaker/@Retry) entra na etapa de integracao com cambio.
+- API: `http://localhost:8080`
+- Swagger: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/api-docs`
+- Health: `http://localhost:8080/actuator/health`
 
-- Observabilidade: Spring Actuator + Micrometer (+ Prometheus registry),
-  com endpoints de health/metrics/circuitbreakers expostos -- base para
-  coletar metricas depois, como combinado.
+## Usuarios De Teste
 
-- Documentacao: springdoc-openapi (Swagger UI em /swagger-ui.html).
+```text
+admin / admin123
+user  / user123
+```
 
-- Testes: JUnit 5 + Mockito (via spring-boot-starter-test) para unidade,
-  Testcontainers (Postgres real + Redis real) para integracao. Classe base
-  AbstractIntegrationTest ja criada e reutilizavel nas proximas etapas.
+Login:
 
-- Docker: Dockerfile multi-stage + docker-compose (Postgres + Redis + API).
+```bash
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}'
+```
 
---------------------------------------------------------------------------------
-3. COMO EXECUTAR
---------------------------------------------------------------------------------
+Use o token retornado no header:
 
-Pre-requisito: Docker e Docker Compose.
+```text
+Authorization: Bearer <token>
+```
 
-    docker-compose up --build -d
+## Endpoints
 
-- API: http://localhost:8080/veiculos
-- Swagger: http://localhost:8080/swagger-ui.html
-- Actuator: http://localhost:8080/actuator/health
+```text
+POST   /auth/login
+GET    /veiculos
+GET    /veiculos/{id}
+POST   /veiculos
+PUT    /veiculos/{id}
+PATCH  /veiculos/{id}
+DELETE /veiculos/{id}
+GET    /veiculos/relatorios/por-marca
+```
 
-Para rodar localmente sem Docker (precisa de Postgres e Redis locais ou via
-`docker-compose up db redis -d`):
+Exemplo de cadastro:
 
-    ./mvnw spring-boot:run
+```bash
+curl -X POST http://localhost:8080/veiculos \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token-admin>" \
+  -d '{
+    "placa": "ABC1D23",
+    "marca": "Honda",
+    "modelo": "Civic",
+    "ano": 2021,
+    "cor": "Preto",
+    "precoUsd": 21000.00
+  }'
+```
 
-Para rodar os testes (sobe containers Testcontainers automaticamente,
-precisa do Docker rodando):
+Exemplo de listagem filtrada:
 
-    ./mvnw test
+```bash
+curl "http://localhost:8080/veiculos?marca=Honda&cor=Preto&page=0&size=20&sort=ano,desc" \
+  -H "Authorization: Bearer <token>"
+```
 
---------------------------------------------------------------------------------
-4. ROADMAP DE DESENVOLVIMENTO
---------------------------------------------------------------------------------
+## Testes
 
-[x] Etapa 1 - Setup: dependencias, Docker, infra base, skeleton hexagonal,
-    GlobalExceptionHandler, cache config, security skeleton, testes base.
+Com Maven local:
 
-[ ] Etapa 2 - Dominio + Persistencia: VeiculoEntity (JPA), VeiculoRepositoryAdapter,
-    VeiculoController com GET (listagem com filtros combinados, paginacao e
-    ordenacao, GET por id).
+```bash
+mvn test
+```
 
-[ ] Etapa 3 - Regras de negocio: VeiculoUseCase completo (CRUD, duplicidade
-    de placa, soft delete, PATCH parcial), relatorio por marca.
+Sem Maven local, usando Docker:
 
-[ ] Etapa 4 - Seguranca: endpoint de autenticacao, JwtService real, roles
-    USER/ADMIN aplicadas nos endpoints conforme especificacao.
+```bash
+docker run --rm -v ${PWD}:/app -w /app maven:3.9.9-eclipse-temurin-21 mvn -B test
+```
 
-[ ] Etapa 5 - Cambio: clients AwesomeAPI + Frankfurter (fallback) com
-    Resilience4j e cache Caffeine/Redis aplicados de verdade.
+Observacao: testes baseados em Testcontainers precisam enxergar o socket Docker. Ao rodar Maven dentro de um container sem `/var/run/docker.sock`, esses testes sao pulados pela configuracao `disabledWithoutDocker`.
 
-[ ] Etapa 6 - Testes finais ate a cobertura "Senior" (>= 75%, incluindo
-    integracao e seguranca) + Swagger refinado + README final com instrucoes
-    completas de execucao e testes.
+## Cache De Cotacao
 
-================================================================================
-Desenvolvido por Fernando Pereira
-================================================================================
+A cotacao fica em Redis na chave:
+
+```text
+dollarQuote::USD_BRL
+```
+
+O TTL e configurado em:
+
+```yaml
+app:
+  currency:
+    cache-ttl-minutes: 5
+```
