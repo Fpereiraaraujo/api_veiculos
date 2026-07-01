@@ -1,0 +1,90 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: veiculos-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/veiculos_db}
+    username: ${DB_USERNAME:veiculos_admin}
+    password: ${DB_PASSWORD:veiculos_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: VeiculosHikariPool
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      connection-timeout: 20000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:troque-este-segredo-em-producao-nunca-comite-isto-de-verdade-0123456789}
+    expiration-minutes: 60
+  currency:
+    primary-url: https://economia.awesomeapi.com.br/json/last/USD-BRL
+    fallback-url: https://api.frankfurter.app/latest?from=USD&to=BRL
+    cache-ttl-minutes: 5
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      currencyApi:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        register-health-indicator: true
+  retry:
+    instances:
+      currencyApi:
+        max-attempts: 3
+        wait-duration: 500ms
+  timelimiter:
+    instances:
+      currencyApi:
+        timeout-duration: 3s
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %5p [%logger{36}] - %msg%n"
+  level:
+    com.fernando.veiculos: DEBUG
+    org.hibernate.SQL: WARN

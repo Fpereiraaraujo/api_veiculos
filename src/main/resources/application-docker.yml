@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/veiculos_db
+  data:
+    redis:
+      host: redis
+      port: 6379

@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: veiculos-db
+    restart: always
+    environment:
+      POSTGRES_USER: veiculos_admin
+      POSTGRES_PASSWORD: veiculos_pass
+      POSTGRES_DB: veiculos_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - veiculos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U veiculos_admin -d veiculos_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: veiculos-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: veiculos-api
+    restart: on-failure
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://db:5432/veiculos_db
+      DB_USERNAME: veiculos_admin
+      DB_PASSWORD: veiculos_pass
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-em-producao-nunca-comite-isto-de-verdade-0123456789}
+
+volumes:
+  veiculos_pgdata:
