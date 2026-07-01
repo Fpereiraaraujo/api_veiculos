@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleUnexpected(Exception ex, HttpServletRequest req) {
-        log.error("erro inesperado em {} {}", req.getMethod(), req.getRequestURI(), ex);
+//        log.error("erro inesperado em {} {}", req.getMethod(), req.getRequestURI(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "erro interno inesperado", req, null);
     }
 
