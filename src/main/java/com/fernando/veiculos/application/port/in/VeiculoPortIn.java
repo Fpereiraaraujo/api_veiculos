@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 public interface VeiculoPortIn {
@@ -22,4 +23,9 @@ public interface VeiculoPortIn {
     Veiculo atualizarParcial(UUID id, Veiculo veiculoParcial);
 
     void remover(UUID id);
+
+    List<RelatorioPorMarca> relatorioPorMarca();
+
+    record RelatorioPorMarca(String marca, long quantidade) {
+    }
 }
