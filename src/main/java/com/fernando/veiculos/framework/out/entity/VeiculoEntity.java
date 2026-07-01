@@ -1,26 +1,55 @@
-package com.fernando.veiculos.domain.model;
+package com.fernando.veiculos.framework.out.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-public class Veiculo {
+@Entity
+@Table(name = "veiculos")
+public class VeiculoEntity {
+
+    @Id
     private UUID id;
+
+    @Column(nullable = false, unique = true, length = 8)
     private String placa;
+
+    @Column(nullable = false, length = 80)
     private String marca;
+
+    @Column(nullable = false, length = 120)
     private String modelo;
+
+    @Column(nullable = false)
     private Integer ano;
+
+    @Column(nullable = false, length = 40)
     private String cor;
+
+    @Column(name = "preco_usd", nullable = false, precision = 14, scale = 2)
     private BigDecimal precoUsd;
+
+    @Column(nullable = false)
     private boolean ativo;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public Veiculo() {
+    public VeiculoEntity() {
     }
 
-    public Veiculo(UUID id, String placa, String marca, String modelo, Integer ano, String cor,
-                   BigDecimal precoUsd, boolean ativo, Instant createdAt, Instant updatedAt) {
+    public VeiculoEntity(UUID id, String placa, String marca, String modelo, Integer ano, String cor,
+                         BigDecimal precoUsd, boolean ativo, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.placa = placa;
         this.marca = marca;
@@ -41,56 +70,28 @@ public class Veiculo {
         return id;
     }
 
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
     public String getPlaca() {
         return placa;
-    }
-
-    public void setPlaca(String placa) {
-        this.placa = placa;
     }
 
     public String getMarca() {
         return marca;
     }
 
-    public void setMarca(String marca) {
-        this.marca = marca;
-    }
-
     public String getModelo() {
         return modelo;
-    }
-
-    public void setModelo(String modelo) {
-        this.modelo = modelo;
     }
 
     public Integer getAno() {
         return ano;
     }
 
-    public void setAno(Integer ano) {
-        this.ano = ano;
-    }
-
     public String getCor() {
         return cor;
     }
 
-    public void setCor(String cor) {
-        this.cor = cor;
-    }
-
     public BigDecimal getPrecoUsd() {
         return precoUsd;
-    }
-
-    public void setPrecoUsd(BigDecimal precoUsd) {
-        this.precoUsd = precoUsd;
     }
 
     public boolean isAtivo() {
@@ -105,16 +106,26 @@ public class Veiculo {
         return createdAt;
     }
 
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
     public Instant getUpdatedAt() {
         return updatedAt;
     }
 
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
+    @PrePersist
+    void prePersist() {
+        if (id == null) {
+            id = UUID.randomUUID();
+        }
+        Instant now = Instant.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        updatedAt = now;
+        ativo = true;
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = Instant.now();
     }
 
     public static final class Builder {
@@ -182,8 +193,8 @@ public class Veiculo {
             return this;
         }
 
-        public Veiculo build() {
-            return new Veiculo(id, placa, marca, modelo, ano, cor, precoUsd, ativo, createdAt, updatedAt);
+        public VeiculoEntity build() {
+            return new VeiculoEntity(id, placa, marca, modelo, ano, cor, precoUsd, ativo, createdAt, updatedAt);
         }
     }
 }
