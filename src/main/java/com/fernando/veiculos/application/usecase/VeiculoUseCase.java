@@ -77,6 +77,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
     @Override
     @Transactional
     public Veiculo atualizarParcial(UUID id, Veiculo veiculoParcial) {
+        validarPatch(veiculoParcial);
         Veiculo atual = buscarPorId(id);
 
         if (veiculoParcial.getPlaca() != null) {
@@ -135,6 +136,19 @@ public class VeiculoUseCase implements VeiculoPortIn {
     private void validarRangePreco(BigDecimal minPreco, BigDecimal maxPreco) {
         if (minPreco != null && maxPreco != null && minPreco.compareTo(maxPreco) > 0) {
             throw new BusinessException("minPreco nao pode ser maior que maxPreco");
+        }
+    }
+
+    private void validarPatch(Veiculo veiculoParcial) {
+        boolean vazio = veiculoParcial.getPlaca() == null
+                && veiculoParcial.getMarca() == null
+                && veiculoParcial.getModelo() == null
+                && veiculoParcial.getAno() == null
+                && veiculoParcial.getCor() == null
+                && veiculoParcial.getPrecoUsd() == null;
+
+        if (vazio) {
+            throw new BusinessException("informe ao menos um campo para atualizar");
         }
     }
 }

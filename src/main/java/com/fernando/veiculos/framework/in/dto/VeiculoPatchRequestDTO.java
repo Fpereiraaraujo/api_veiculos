@@ -24,12 +24,4 @@ public record VeiculoPatchRequestDTO(
         @DecimalMin(value = "0.01", message = "precoUsd deve ser maior que zero")
         BigDecimal precoUsd
 ) {
-    public boolean vazio() {
-        return placa == null
-                && marca == null
-                && modelo == null
-                && ano == null
-                && cor == null
-                && precoUsd == null;
-    }
 }

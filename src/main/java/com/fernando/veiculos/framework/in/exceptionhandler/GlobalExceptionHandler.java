@@ -5,11 +5,13 @@ import com.fernando.veiculos.domain.exception.DuplicatePlacaException;
 import com.fernando.veiculos.domain.exception.VeiculoNotFoundException;
 import com.fernando.veiculos.framework.in.dto.ErrorResponseDTO;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -17,9 +19,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.List;
 
-@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(VeiculoNotFoundException.class)
     public ResponseEntity<ErrorResponseDTO> handleNotFound(VeiculoNotFoundException ex, HttpServletRequest req) {
@@ -44,6 +47,12 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "dados invalidos", req, fieldErrors);
     }
 
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponseDTO> handleMalformedJson(HttpMessageNotReadableException ex,
+                                                                HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "corpo da requisicao invalido ou malformado", req, null);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponseDTO> handleBadCredentials(BadCredentialsException ex, HttpServletRequest req) {
         return build(HttpStatus.UNAUTHORIZED, "credenciais invalidas", req, null);
@@ -56,7 +65,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDTO> handleUnexpected(Exception ex, HttpServletRequest req) {
-//        log.error("erro inesperado em {} {}", req.getMethod(), req.getRequestURI(), ex);
+        log.error("erro inesperado em {} {}", req.getMethod(), req.getRequestURI(), ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "erro interno inesperado", req, null);
     }
 

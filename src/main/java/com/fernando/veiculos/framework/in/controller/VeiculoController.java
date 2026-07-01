@@ -1,12 +1,12 @@
 package com.fernando.veiculos.framework.in.controller;
 
 import com.fernando.veiculos.application.port.in.VeiculoPortIn;
-import com.fernando.veiculos.domain.exception.BusinessException;
 import com.fernando.veiculos.domain.model.Veiculo;
 import com.fernando.veiculos.framework.in.dto.RelatorioPorMarcaDTO;
 import com.fernando.veiculos.framework.in.dto.VeiculoPatchRequestDTO;
 import com.fernando.veiculos.framework.in.dto.VeiculoRequestDTO;
 import com.fernando.veiculos.framework.in.dto.VeiculoResponseDTO;
+import com.fernando.veiculos.framework.in.mapper.VeiculoHttpMapper;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,9 +33,11 @@ import java.util.UUID;
 public class VeiculoController {
 
     private final VeiculoPortIn veiculoPortIn;
+    private final VeiculoHttpMapper mapper;
 
-    public VeiculoController(VeiculoPortIn veiculoPortIn) {
+    public VeiculoController(VeiculoPortIn veiculoPortIn, VeiculoHttpMapper mapper) {
         this.veiculoPortIn = veiculoPortIn;
+        this.mapper = mapper;
     }
 
     @GetMapping
@@ -45,33 +47,30 @@ public class VeiculoController {
                                            @RequestParam(required = false) BigDecimal minPreco,
                                            @RequestParam(required = false) BigDecimal maxPreco,
                                            @PageableDefault(size = 20, sort = "marca") Pageable pageable) {
-        return veiculoPortIn.buscar(marca, ano, cor, minPreco, maxPreco, pageable).map(this::toResponse);
+        return veiculoPortIn.buscar(marca, ano, cor, minPreco, maxPreco, pageable).map(mapper::toResponse);
     }
 
     @GetMapping("/{id}")
     public VeiculoResponseDTO buscarPorId(@PathVariable UUID id) {
-        return toResponse(veiculoPortIn.buscarPorId(id));
+        return mapper.toResponse(veiculoPortIn.buscarPorId(id));
     }
 
     @PostMapping
     public ResponseEntity<VeiculoResponseDTO> cadastrar(@Valid @RequestBody VeiculoRequestDTO request) {
-        Veiculo criado = veiculoPortIn.cadastrar(toDomain(request));
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(criado));
+        Veiculo criado = veiculoPortIn.cadastrar(mapper.toDomain(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toResponse(criado));
     }
 
     @PutMapping("/{id}")
     public VeiculoResponseDTO atualizar(@PathVariable UUID id,
                                         @Valid @RequestBody VeiculoRequestDTO request) {
-        return toResponse(veiculoPortIn.atualizar(id, toDomain(request)));
+        return mapper.toResponse(veiculoPortIn.atualizar(id, mapper.toDomain(request)));
     }
 
     @PatchMapping("/{id}")
     public VeiculoResponseDTO atualizarParcial(@PathVariable UUID id,
                                                @Valid @RequestBody VeiculoPatchRequestDTO request) {
-        if (request.vazio()) {
-            throw new BusinessException("informe ao menos um campo para atualizar");
-        }
-        return toResponse(veiculoPortIn.atualizarParcial(id, toDomain(request)));
+        return mapper.toResponse(veiculoPortIn.atualizarParcial(id, mapper.toDomain(request)));
     }
 
     @DeleteMapping("/{id}")
@@ -83,44 +82,7 @@ public class VeiculoController {
     @GetMapping("/relatorios/por-marca")
     public List<RelatorioPorMarcaDTO> relatorioPorMarca() {
         return veiculoPortIn.relatorioPorMarca().stream()
-                .map(item -> new RelatorioPorMarcaDTO(item.marca(), item.quantidade()))
+                .map(mapper::toResponse)
                 .toList();
-    }
-
-    private Veiculo toDomain(VeiculoRequestDTO request) {
-        return Veiculo.builder()
-                .placa(request.placa())
-                .marca(request.marca())
-                .modelo(request.modelo())
-                .ano(request.ano())
-                .cor(request.cor())
-                .precoUsd(request.precoUsd())
-                .build();
-    }
-
-    private Veiculo toDomain(VeiculoPatchRequestDTO request) {
-        return Veiculo.builder()
-                .placa(request.placa())
-                .marca(request.marca())
-                .modelo(request.modelo())
-                .ano(request.ano())
-                .cor(request.cor())
-                .precoUsd(request.precoUsd())
-                .build();
-    }
-
-    private VeiculoResponseDTO toResponse(Veiculo veiculo) {
-        return new VeiculoResponseDTO(
-                veiculo.getId(),
-                veiculo.getPlaca(),
-                veiculo.getMarca(),
-                veiculo.getModelo(),
-                veiculo.getAno(),
-                veiculo.getCor(),
-                veiculo.getPrecoUsd(),
-                veiculo.isAtivo(),
-                veiculo.getCreatedAt(),
-                veiculo.getUpdatedAt()
-        );
     }
 }
