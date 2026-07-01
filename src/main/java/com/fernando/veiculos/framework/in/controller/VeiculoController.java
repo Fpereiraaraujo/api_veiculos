@@ -8,7 +8,6 @@ import com.fernando.veiculos.framework.in.dto.VeiculoRequestDTO;
 import com.fernando.veiculos.framework.in.dto.VeiculoResponseDTO;
 import com.fernando.veiculos.framework.in.mapper.VeiculoHttpMapper;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.data.web.PageableDefault;
@@ -48,9 +47,10 @@ public class VeiculoController {
                                                  @RequestParam(required = false) BigDecimal minPreco,
                                                  @RequestParam(required = false) BigDecimal maxPreco,
                                                  @PageableDefault(size = 20, sort = "marca") Pageable pageable) {
-        Page<VeiculoResponseDTO> veiculos = veiculoPortIn.buscar(marca, ano, cor, minPreco, maxPreco, pageable)
-                .map(mapper::toResponse);
-        return new PagedModel<>(veiculos);
+        return mapper.toPagedResponse(
+                veiculoPortIn.buscar(marca, ano, cor, minPreco, maxPreco, mapper.toPageRequest(pageable)),
+                pageable
+        );
     }
 
     @GetMapping("/{id}")

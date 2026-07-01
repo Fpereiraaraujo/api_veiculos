@@ -1,12 +1,20 @@
 package com.fernando.veiculos.framework.in.mapper;
 
+import com.fernando.veiculos.application.model.PageRequestData;
+import com.fernando.veiculos.application.model.PageResult;
 import com.fernando.veiculos.application.port.in.VeiculoPortIn.RelatorioPorMarca;
 import com.fernando.veiculos.domain.model.Veiculo;
 import com.fernando.veiculos.framework.in.dto.RelatorioPorMarcaDTO;
 import com.fernando.veiculos.framework.in.dto.VeiculoPatchRequestDTO;
 import com.fernando.veiculos.framework.in.dto.VeiculoRequestDTO;
 import com.fernando.veiculos.framework.in.dto.VeiculoResponseDTO;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PagedModel;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 public class VeiculoHttpMapper {
@@ -51,5 +59,26 @@ public class VeiculoHttpMapper {
 
     public RelatorioPorMarcaDTO toResponse(RelatorioPorMarca item) {
         return new RelatorioPorMarcaDTO(item.marca(), item.quantidade());
+    }
+
+    public PageRequestData toPageRequest(Pageable pageable) {
+        List<PageRequestData.SortData> sort = pageable.getSort().stream()
+                .map(this::toSortData)
+                .toList();
+        return new PageRequestData(pageable.getPageNumber(), pageable.getPageSize(), sort);
+    }
+
+    public PagedModel<VeiculoResponseDTO> toPagedResponse(PageResult<Veiculo> page, Pageable pageable) {
+        List<VeiculoResponseDTO> content = page.content().stream()
+                .map(this::toResponse)
+                .toList();
+        return new PagedModel<>(new PageImpl<>(content, pageable, page.totalElements()));
+    }
+
+    private PageRequestData.SortData toSortData(Sort.Order order) {
+        PageRequestData.Direction direction = order.isDescending()
+                ? PageRequestData.Direction.DESC
+                : PageRequestData.Direction.ASC;
+        return new PageRequestData.SortData(order.getProperty(), direction);
     }
 }

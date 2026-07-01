@@ -1,8 +1,8 @@
 package com.fernando.veiculos.application.port.in;
 
+import com.fernando.veiculos.application.model.PageRequestData;
+import com.fernando.veiculos.application.model.PageResult;
 import com.fernando.veiculos.domain.model.Veiculo;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -10,9 +10,9 @@ import java.util.UUID;
 
 public interface VeiculoPortIn {
 
-    Page<Veiculo> buscar(String marca, Integer ano, String cor,
-                          BigDecimal minPreco, BigDecimal maxPreco,
-                          Pageable pageable);
+    PageResult<Veiculo> buscar(String marca, Integer ano, String cor,
+                                BigDecimal minPreco, BigDecimal maxPreco,
+                                PageRequestData pageRequest);
 
     Veiculo buscarPorId(UUID id);
 

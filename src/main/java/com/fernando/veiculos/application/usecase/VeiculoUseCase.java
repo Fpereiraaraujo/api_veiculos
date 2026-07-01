@@ -1,5 +1,7 @@
 package com.fernando.veiculos.application.usecase;
 
+import com.fernando.veiculos.application.model.PageRequestData;
+import com.fernando.veiculos.application.model.PageResult;
 import com.fernando.veiculos.application.port.in.VeiculoPortIn;
 import com.fernando.veiculos.application.port.out.CurrencyConversionPortOut;
 import com.fernando.veiculos.application.port.out.VeiculoPortOut;
@@ -7,8 +9,6 @@ import com.fernando.veiculos.domain.exception.BusinessException;
 import com.fernando.veiculos.domain.exception.DuplicatePlacaException;
 import com.fernando.veiculos.domain.exception.VeiculoNotFoundException;
 import com.fernando.veiculos.domain.model.Veiculo;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +20,7 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 @Service
+@Transactional(readOnly = true)
 public class VeiculoUseCase implements VeiculoPortIn {
 
     private final VeiculoPortOut veiculoPortOut;
@@ -32,18 +33,16 @@ public class VeiculoUseCase implements VeiculoPortIn {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Page<Veiculo> buscar(String marca, Integer ano, String cor,
-                                BigDecimal minPreco, BigDecimal maxPreco,
-                                Pageable pageable) {
+    public PageResult<Veiculo> buscar(String marca, Integer ano, String cor,
+                                      BigDecimal minPreco, BigDecimal maxPreco,
+                                      PageRequestData pageRequest) {
         validarRangePreco(minPreco, maxPreco);
         BigDecimal cotacao = currencyConversionPortOut.obterCotacaoUsdParaBrl();
-        return veiculoPortOut.findAll(marca, ano, cor, minPreco, maxPreco, pageable)
+        return veiculoPortOut.findAll(marca, ano, cor, minPreco, maxPreco, pageRequest)
                 .map(veiculo -> aplicarPrecoBrl(veiculo, cotacao));
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Veiculo buscarPorId(UUID id) {
         return aplicarPrecoBrl(obterVeiculoAtivo(id));
     }
@@ -104,7 +103,6 @@ public class VeiculoUseCase implements VeiculoPortIn {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<RelatorioPorMarca> relatorioPorMarca() {
         return veiculoPortOut.countByMarca();
     }

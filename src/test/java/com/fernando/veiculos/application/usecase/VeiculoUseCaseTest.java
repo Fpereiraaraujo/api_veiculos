@@ -1,5 +1,7 @@
 package com.fernando.veiculos.application.usecase;
 
+import com.fernando.veiculos.application.model.PageRequestData;
+import com.fernando.veiculos.application.model.PageResult;
 import com.fernando.veiculos.application.port.out.CurrencyConversionPortOut;
 import com.fernando.veiculos.application.port.out.VeiculoPortOut;
 import com.fernando.veiculos.domain.exception.BusinessException;
@@ -11,8 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -61,7 +61,7 @@ class VeiculoUseCaseTest {
     @Test
     void deveValidarRangeDePrecoAntesDeConsultarRepositorio() {
         assertThatThrownBy(() -> useCase.buscar(null, null, null,
-                new BigDecimal("20000.00"), new BigDecimal("10000.00"), PageRequest.of(0, 20)))
+                new BigDecimal("20000.00"), new BigDecimal("10000.00"), pageRequest()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("minPreco nao pode ser maior que maxPreco");
 
@@ -79,15 +79,15 @@ class VeiculoUseCaseTest {
 
     @Test
     void deveAplicarCotacaoUmaVezNaListagem() {
-        PageRequest pageable = PageRequest.of(0, 20);
+        PageRequestData pageRequest = pageRequest();
         when(currencyConversionPortOut.obterCotacaoUsdParaBrl()).thenReturn(COTACAO);
         when(veiculoPortOut.findAll(eq("Honda"), eq(2021), eq("Preto"),
-                eq(null), eq(null), eq(pageable)))
-                .thenReturn(new PageImpl<>(List.of(veiculo("ABC1D23"), veiculo("DEF2E34"))));
+                eq(null), eq(null), eq(pageRequest)))
+                .thenReturn(new PageResult<>(List.of(veiculo("ABC1D23"), veiculo("DEF2E34")), 0, 20, 2, 1));
 
-        var resultado = useCase.buscar("Honda", 2021, "Preto", null, null, pageable);
+        var resultado = useCase.buscar("Honda", 2021, "Preto", null, null, pageRequest);
 
-        assertThat(resultado.getContent())
+        assertThat(resultado.content())
                 .extracting(Veiculo::getPrecoBrl)
                 .containsExactly(new BigDecimal("50000.00"), new BigDecimal("50000.00"));
         verify(currencyConversionPortOut).obterCotacaoUsdParaBrl();
@@ -129,5 +129,9 @@ class VeiculoUseCaseTest {
                 .precoUsd(new BigDecimal("10000.00"))
                 .ativo(true)
                 .build();
+    }
+
+    private PageRequestData pageRequest() {
+        return new PageRequestData(0, 20, List.of());
     }
 }

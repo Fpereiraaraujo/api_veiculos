@@ -1,5 +1,7 @@
 package com.fernando.veiculos.framework.in.controller;
 
+import com.fernando.veiculos.application.model.PageRequestData;
+import com.fernando.veiculos.application.model.PageResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fernando.veiculos.application.port.in.VeiculoPortIn;
@@ -17,8 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -26,6 +26,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -81,8 +82,8 @@ class VeiculoControllerSecurityTest {
     @Test
     @WithMockUser(roles = "USER")
     void devePermitirListagemParaUsuario() throws Exception {
-        when(veiculoPortIn.buscar(isNull(), isNull(), isNull(), isNull(), isNull(), any(Pageable.class)))
-                .thenReturn(Page.empty());
+        when(veiculoPortIn.buscar(isNull(), isNull(), isNull(), isNull(), isNull(), any(PageRequestData.class)))
+                .thenReturn(new PageResult<>(List.of(), 0, 20, 0, 0));
 
         mockMvc.perform(get("/veiculos"))
                 .andExpect(status().isOk());
