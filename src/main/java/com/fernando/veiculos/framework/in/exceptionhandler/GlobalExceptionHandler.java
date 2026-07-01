@@ -1,6 +1,7 @@
 package com.fernando.veiculos.framework.in.exceptionhandler;
 
 import com.fernando.veiculos.domain.exception.BusinessException;
+import com.fernando.veiculos.domain.exception.CurrencyConversionException;
 import com.fernando.veiculos.domain.exception.DuplicatePlacaException;
 import com.fernando.veiculos.domain.exception.VeiculoNotFoundException;
 import com.fernando.veiculos.framework.in.dto.ErrorResponseDTO;
@@ -32,6 +33,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicatePlacaException.class)
     public ResponseEntity<ErrorResponseDTO> handleDuplicate(DuplicatePlacaException ex, HttpServletRequest req) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), req, null);
+    }
+
+    @ExceptionHandler(CurrencyConversionException.class)
+    public ResponseEntity<ErrorResponseDTO> handleCurrencyUnavailable(CurrencyConversionException ex,
+                                                                      HttpServletRequest req) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(BusinessException.class)
