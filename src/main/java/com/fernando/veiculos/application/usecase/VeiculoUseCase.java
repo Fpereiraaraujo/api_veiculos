@@ -1,6 +1,7 @@
 package com.fernando.veiculos.application.usecase;
 
 import com.fernando.veiculos.application.port.in.VeiculoPortIn;
+import com.fernando.veiculos.application.port.out.CurrencyConversionPortOut;
 import com.fernando.veiculos.application.port.out.VeiculoPortOut;
 import com.fernando.veiculos.domain.exception.BusinessException;
 import com.fernando.veiculos.domain.exception.DuplicatePlacaException;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -20,9 +22,12 @@ import java.util.UUID;
 public class VeiculoUseCase implements VeiculoPortIn {
 
     private final VeiculoPortOut veiculoPortOut;
+    private final CurrencyConversionPortOut currencyConversionPortOut;
 
-    public VeiculoUseCase(VeiculoPortOut veiculoPortOut) {
+    public VeiculoUseCase(VeiculoPortOut veiculoPortOut,
+                          CurrencyConversionPortOut currencyConversionPortOut) {
         this.veiculoPortOut = veiculoPortOut;
+        this.currencyConversionPortOut = currencyConversionPortOut;
     }
 
     @Override
@@ -31,13 +36,15 @@ public class VeiculoUseCase implements VeiculoPortIn {
                                 BigDecimal minPreco, BigDecimal maxPreco,
                                 Pageable pageable) {
         validarRangePreco(minPreco, maxPreco);
-        return veiculoPortOut.findAll(marca, ano, cor, minPreco, maxPreco, pageable);
+        BigDecimal cotacao = currencyConversionPortOut.obterCotacaoUsdParaBrl();
+        return veiculoPortOut.findAll(marca, ano, cor, minPreco, maxPreco, pageable)
+                .map(veiculo -> aplicarPrecoBrl(veiculo, cotacao));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Veiculo buscarPorId(UUID id) {
-        return veiculoPortOut.findById(id).orElseThrow(() -> new VeiculoNotFoundException(id));
+        return aplicarPrecoBrl(veiculoPortOut.findById(id).orElseThrow(() -> new VeiculoNotFoundException(id)));
     }
 
     @Override
@@ -54,7 +61,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
         veiculo.setAtivo(true);
         veiculo.setCreatedAt(now);
         veiculo.setUpdatedAt(now);
-        return veiculoPortOut.save(veiculo);
+        return aplicarPrecoBrl(veiculoPortOut.save(veiculo));
     }
 
     @Override
@@ -71,7 +78,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
         atual.setCor(veiculo.getCor());
         atual.setPrecoUsd(veiculo.getPrecoUsd());
         atual.setUpdatedAt(Instant.now());
-        return veiculoPortOut.save(atual);
+        return aplicarPrecoBrl(veiculoPortOut.save(atual));
     }
 
     @Override
@@ -102,7 +109,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
         }
 
         atual.setUpdatedAt(Instant.now());
-        return veiculoPortOut.save(atual);
+        return aplicarPrecoBrl(veiculoPortOut.save(atual));
     }
 
     @Override
@@ -150,5 +157,16 @@ public class VeiculoUseCase implements VeiculoPortIn {
         if (vazio) {
             throw new BusinessException("informe ao menos um campo para atualizar");
         }
+    }
+
+    private Veiculo aplicarPrecoBrl(Veiculo veiculo) {
+        return aplicarPrecoBrl(veiculo, currencyConversionPortOut.obterCotacaoUsdParaBrl());
+    }
+
+    private Veiculo aplicarPrecoBrl(Veiculo veiculo, BigDecimal cotacao) {
+        if (veiculo.getPrecoUsd() != null && cotacao != null) {
+            veiculo.setPrecoBrl(veiculo.getPrecoUsd().multiply(cotacao).setScale(2, RoundingMode.HALF_UP));
+        }
+        return veiculo;
     }
 }

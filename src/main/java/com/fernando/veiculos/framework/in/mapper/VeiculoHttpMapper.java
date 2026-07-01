@@ -42,6 +42,7 @@ public class VeiculoHttpMapper {
                 veiculo.getAno(),
                 veiculo.getCor(),
                 veiculo.getPrecoUsd(),
+                veiculo.getPrecoBrl(),
                 veiculo.isAtivo(),
                 veiculo.getCreatedAt(),
                 veiculo.getUpdatedAt()

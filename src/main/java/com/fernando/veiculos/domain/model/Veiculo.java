@@ -12,6 +12,7 @@ public class Veiculo {
     private Integer ano;
     private String cor;
     private BigDecimal precoUsd;
+    private BigDecimal precoBrl;
     private boolean ativo;
     private Instant createdAt;
     private Instant updatedAt;
@@ -20,7 +21,7 @@ public class Veiculo {
     }
 
     public Veiculo(UUID id, String placa, String marca, String modelo, Integer ano, String cor,
-                   BigDecimal precoUsd, boolean ativo, Instant createdAt, Instant updatedAt) {
+                   BigDecimal precoUsd, BigDecimal precoBrl, boolean ativo, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.placa = placa;
         this.marca = marca;
@@ -28,6 +29,7 @@ public class Veiculo {
         this.ano = ano;
         this.cor = cor;
         this.precoUsd = precoUsd;
+        this.precoBrl = precoBrl;
         this.ativo = ativo;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -93,6 +95,14 @@ public class Veiculo {
         this.precoUsd = precoUsd;
     }
 
+    public BigDecimal getPrecoBrl() {
+        return precoBrl;
+    }
+
+    public void setPrecoBrl(BigDecimal precoBrl) {
+        this.precoBrl = precoBrl;
+    }
+
     public boolean isAtivo() {
         return ativo;
     }
@@ -125,6 +135,7 @@ public class Veiculo {
         private Integer ano;
         private String cor;
         private BigDecimal precoUsd;
+        private BigDecimal precoBrl;
         private boolean ativo;
         private Instant createdAt;
         private Instant updatedAt;
@@ -167,6 +178,11 @@ public class Veiculo {
             return this;
         }
 
+        public Builder precoBrl(BigDecimal precoBrl) {
+            this.precoBrl = precoBrl;
+            return this;
+        }
+
         public Builder ativo(boolean ativo) {
             this.ativo = ativo;
             return this;
@@ -183,7 +199,7 @@ public class Veiculo {
         }
 
         public Veiculo build() {
-            return new Veiculo(id, placa, marca, modelo, ano, cor, precoUsd, ativo, createdAt, updatedAt);
+            return new Veiculo(id, placa, marca, modelo, ano, cor, precoUsd, precoBrl, ativo, createdAt, updatedAt);
         }
     }
 }

@@ -12,6 +12,7 @@ public record VeiculoResponseDTO(
         Integer ano,
         String cor,
         BigDecimal precoUsd,
+        BigDecimal precoBrl,
         boolean ativo,
         Instant createdAt,
         Instant updatedAt
