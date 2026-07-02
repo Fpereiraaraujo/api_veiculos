@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, BarChart3, CarFront, Loader2, LogOut, RefreshCw, Search } from 'lucide-react';
+import type { Dispatch, FormEvent, SetStateAction } from 'react';
+import { ArrowRight, BarChart3, CarFront, Crown, Loader2, LogOut, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { listarRelatorio, listarVeiculos, login } from './api';
 import type { RelatorioPorMarca, Veiculo } from './types';
 
@@ -23,8 +24,11 @@ const defaultFilters: Filters = {
   size: '20',
 };
 
+type AccessRole = 'ADMIN' | 'USER';
+
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('veiculos.token') ?? '');
+  const [role, setRole] = useState<AccessRole | ''>(() => getStoredRole() || getRoleFromToken(localStorage.getItem('veiculos.token') ?? ''));
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin123');
   const [filters, setFilters] = useState(defaultFilters);
@@ -41,19 +45,30 @@ export default function App() {
   const query = useMemo(() => buildQuery(filters, page), [filters, page]);
 
   useEffect(() => {
+    if (token && !role) {
+      const resolvedRole = getRoleFromToken(token);
+      setRole(resolvedRole);
+      localStorage.setItem('veiculos.role', resolvedRole);
+    }
+  }, [token, role]);
+
+  useEffect(() => {
     if (loggedIn) {
       void loadData();
     }
   }, [loggedIn, query]);
 
-  async function handleLogin(event: React.FormEvent) {
+  async function handleLogin(event: FormEvent) {
     event.preventDefault();
     setAuthLoading(true);
     setError('');
     try {
       const result = await login(username, password);
+      const resolvedRole = getRoleFromToken(result.token);
       localStorage.setItem('veiculos.token', result.token);
+      localStorage.setItem('veiculos.role', resolvedRole);
       setToken(result.token);
+      setRole(resolvedRole);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao autenticar');
     } finally {
@@ -82,7 +97,9 @@ export default function App() {
 
   function logout() {
     localStorage.removeItem('veiculos.token');
+    localStorage.removeItem('veiculos.role');
     setToken('');
+    setRole('');
     setItems([]);
     setReport([]);
   }
@@ -92,19 +109,68 @@ export default function App() {
       onUsername={setUsername} onPassword={setPassword} onSubmit={handleLogin} />;
   }
 
+  return role === 'ADMIN' ? (
+    <AdminDashboard
+      loading={loading}
+      error={error}
+      filters={filters}
+      setFilters={setFilters}
+      page={page}
+      setPage={setPage}
+      totalElements={totalElements}
+      totalPages={totalPages}
+      items={items}
+      report={report}
+      onRefresh={loadData}
+      onLogout={logout}
+    />
+  ) : (
+    <UserDashboard
+      loading={loading}
+      error={error}
+      filters={filters}
+      setFilters={setFilters}
+      page={page}
+      setPage={setPage}
+      totalElements={totalElements}
+      totalPages={totalPages}
+      items={items}
+      onRefresh={loadData}
+      onLogout={logout}
+    />
+  );
+}
+
+function AdminDashboard(props: {
+  loading: boolean;
+  error: string;
+  filters: Filters;
+  setFilters: Dispatch<SetStateAction<Filters>>;
+  page: number;
+  setPage: Dispatch<SetStateAction<number>>;
+  totalElements: number;
+  totalPages: number;
+  items: Veiculo[];
+  report: RelatorioPorMarca[];
+  onRefresh: () => void;
+  onLogout: () => void;
+}) {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:px-8">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Veiculos API</p>
-            <h1 className="text-2xl font-semibold">Painel de consulta</h1>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold">
+              <Crown size={20} className="text-amber-300" />
+              Painel administrativo
+            </h1>
           </div>
           <div className="flex items-center gap-2">
-            <button className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/15" onClick={loadData}>
+            <button className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/15" onClick={props.onRefresh}>
               <RefreshCw size={16} /> Atualizar
             </button>
-            <button className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/15" onClick={logout}>
+            <button className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/15" onClick={props.onLogout}>
               <LogOut size={16} /> Sair
             </button>
           </div>
@@ -113,30 +179,97 @@ export default function App() {
         <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
           <aside className="rounded-lg border border-white/10 bg-white/5 p-4">
             <h2 className="mb-3 text-sm font-medium text-slate-300">Filtros</h2>
-            <FiltersPanel filters={filters} setFilters={setFilters} page={page} setPage={setPage} />
+            <FiltersPanel filters={props.filters} setFilters={props.setFilters} page={props.page} setPage={props.setPage} />
           </aside>
           <main className="grid gap-4">
             <Summary cards={[
-              { label: 'Veiculos', value: String(totalElements) },
-              { label: 'Pagina', value: `${page + 1}/${Math.max(totalPages, 1)}` },
+              { label: 'Veiculos', value: String(props.totalElements) },
+              { label: 'Pagina', value: `${props.page + 1}/${Math.max(props.totalPages, 1)}` },
               { label: 'Token', value: 'ativo' },
+              { label: 'Perfil', value: 'ADMIN' },
             ]} />
             <section className="grid gap-4 xl:grid-cols-[1fr_320px]">
               <div className="rounded-lg border border-white/10 bg-white/5 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="flex items-center gap-2 text-sm font-medium text-slate-300"><CarFront size={16} /> Veiculos</h2>
-                  {loading && <Loader2 className="animate-spin text-slate-400" size={16} />}
+                  {props.loading && <Loader2 className="animate-spin text-slate-400" size={16} />}
                 </div>
-                <VehicleTable items={items} />
+                <VehicleTable items={props.items} />
               </div>
               <div className="rounded-lg border border-white/10 bg-white/5 p-4">
                 <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-300"><BarChart3 size={16} /> Relatorio</h2>
-                <ReportList items={report} />
+                <ReportList items={props.report} />
               </div>
             </section>
             <footer className="flex items-center justify-between text-xs text-slate-400">
               <span>GET /veiculos</span>
-              <span>{error || 'pronto'}</span>
+              <span>{props.error || 'pronto'}</span>
+            </footer>
+          </main>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function UserDashboard(props: {
+  loading: boolean;
+  error: string;
+  filters: Filters;
+  setFilters: Dispatch<SetStateAction<Filters>>;
+  page: number;
+  setPage: Dispatch<SetStateAction<number>>;
+  totalElements: number;
+  totalPages: number;
+  items: Veiculo[];
+  onRefresh: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-6 lg:px-8">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Veiculos API</p>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold">
+              <ShieldCheck size={20} className="text-cyan-300" />
+              Painel de consulta
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/15" onClick={props.onRefresh}>
+              <RefreshCw size={16} /> Atualizar
+            </button>
+            <button className="inline-flex items-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm hover:bg-white/15" onClick={props.onLogout}>
+              <LogOut size={16} /> Sair
+            </button>
+          </div>
+        </header>
+
+        <section className="grid gap-4 lg:grid-cols-[320px_1fr]">
+          <aside className="rounded-lg border border-white/10 bg-white/5 p-4">
+            <div className="mb-3">
+              <h2 className="text-sm font-medium text-slate-300">Filtros</h2>
+              <p className="mt-1 text-xs text-slate-400">Consulta liberada para o perfil USER.</p>
+            </div>
+            <FiltersPanel filters={props.filters} setFilters={props.setFilters} page={props.page} setPage={props.setPage} />
+          </aside>
+          <main className="grid gap-4">
+            <Summary cards={[
+              { label: 'Veiculos', value: String(props.totalElements) },
+              { label: 'Pagina', value: `${props.page + 1}/${Math.max(props.totalPages, 1)}` },
+              { label: 'Perfil', value: 'USER' },
+            ]} />
+            <section className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-medium text-slate-300"><CarFront size={16} /> Veiculos</h2>
+                {props.loading && <Loader2 className="animate-spin text-slate-400" size={16} />}
+              </div>
+              <VehicleTable items={props.items} />
+            </section>
+            <footer className="flex items-center justify-between text-xs text-slate-400">
+              <span>GET /veiculos</span>
+              <span>{props.error || 'pronto'}</span>
             </footer>
           </main>
         </section>
@@ -285,7 +418,7 @@ function Input({ label, value, onChange, type = 'text' }: { label: string; value
   );
 }
 
-function update<K extends keyof Filters>(filters: Filters, setFilters: React.Dispatch<React.SetStateAction<Filters>>, key: K, value: string, setPage: (page: number) => void) {
+function update<K extends keyof Filters>(filters: Filters, setFilters: Dispatch<SetStateAction<Filters>>, key: K, value: string, setPage: (page: number) => void) {
   setFilters({ ...filters, [key]: value } as Filters);
   setPage(0);
 }
@@ -310,4 +443,29 @@ function formatMoney(value: Veiculo['precoUsd'] | Veiculo['precoBrl']) {
   }
   const number = typeof value === 'number' ? value : Number(value);
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(number);
+}
+
+function getStoredRole(): AccessRole | '' {
+  const stored = localStorage.getItem('veiculos.role');
+  return stored === 'ADMIN' || stored === 'USER' ? stored : '';
+}
+
+function getRoleFromToken(token: string): AccessRole {
+  try {
+    const payloadBase64 = token.split('.')[1];
+    if (!payloadBase64) {
+      return 'USER';
+    }
+    const payloadJson = decodeBase64Url(payloadBase64);
+    const payload = JSON.parse(payloadJson) as { roles?: string[] };
+    return payload.roles?.includes('ROLE_ADMIN') ? 'ADMIN' : 'USER';
+  } catch {
+    return 'USER';
+  }
+}
+
+function decodeBase64Url(value: string) {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+  return atob(padded);
 }
