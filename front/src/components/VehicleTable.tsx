@@ -33,8 +33,8 @@ export function VehicleTable({ items, canManage = false, onEdit, onPatch, onDele
               <td className="py-3 pr-4">{item.modelo}</td>
               <td className="py-3 pr-4">{item.ano}</td>
               <td className="py-3 pr-4">{item.cor}</td>
-              <td className="py-3 pr-4">{formatMoney(item.precoUsd)}</td>
-              <td className="py-3 pr-4">{formatMoney(item.precoBrl)}</td>
+              <td className="py-3 pr-4">{formatCurrency(item.precoUsd, 'USD')}</td>
+              <td className="py-3 pr-4">{formatCurrency(item.precoBrl, 'BRL')}</td>
               {canManage ? (
                 <td className="py-3 pr-0">
                   <div className="flex gap-2">
@@ -77,10 +77,11 @@ function ActionButton({
   );
 }
 
-function formatMoney(value: Veiculo['precoUsd'] | Veiculo['precoBrl']) {
+function formatCurrency(value: Veiculo['precoUsd'] | Veiculo['precoBrl'], currency: 'USD' | 'BRL') {
   if (value === null || value === undefined) {
     return '-';
   }
   const number = typeof value === 'number' ? value : Number(value);
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(number);
+  const locale = currency === 'USD' ? 'en-US' : 'pt-BR';
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(number);
 }
