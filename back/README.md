@@ -13,8 +13,9 @@ API REST para gerenciamento de veiculos usando Java 21, Spring Boot 3.4.2 e arqu
 - `ADMIN`: cadastro, atualizacao, remocao e leitura.
 - Preco persistido em dolar (`precoUsd`) e retornado tambem em real (`precoBrl`).
 - Cotacao USD-BRL pela AwesomeAPI, com fallback para Frankfurter.
-- Cache Redis para cotacao, com uso do cache quando APIs externas falham.
+- Cache em duas camadas para cotacao: Caffeine (L1, memoria) + Redis (L2, distribuido).
 - Retry e circuit breaker com Resilience4j no adapter de cambio.
+- Pool de conexoes JDBC com HikariCP.
 - Swagger UI com esquema Bearer JWT.
 - Actuator com health, liveness, readiness, metrics, prometheus e circuit breakers.
 - Tratamento padronizado de erros e logs para erros de negocio/validacao.
@@ -187,7 +188,12 @@ curl http://localhost:8080/veiculos/relatorios/por-marca \
 
 ## Cache De Cotacao
 
-A cotacao fica em Redis na chave:
+A cotacao usa duas camadas:
+
+- `Caffeine` como cache local em memoria para leituras mais quentes.
+- `Redis` como cache distribuido e fallback compartilhado entre instancias.
+
+A chave usada e:
 
 ```text
 dollarQuote::USD_BRL
@@ -199,6 +205,22 @@ O TTL e configurado em:
 app:
   currency:
     cache-ttl-minutes: 5
+```
+
+## Pool De Conexoes
+
+O datasource usa `HikariCP`, configurado em [`application.yml`](./src/main/resources/application.yml) com:
+
+```yaml
+spring:
+  datasource:
+    hikari:
+      pool-name: VeiculosHikariPool
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      connection-timeout: 20000
+      max-lifetime: 1800000
 ```
 
 ## Testes

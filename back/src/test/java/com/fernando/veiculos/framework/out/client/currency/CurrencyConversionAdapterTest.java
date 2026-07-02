@@ -24,15 +24,17 @@ class CurrencyConversionAdapterTest {
     private static final String FALLBACK_URL = "https://currency.test/fallback";
 
     private MockRestServiceServer server;
-    private CacheManager cacheManager;
+    private CacheManager localCacheManager;
+    private CacheManager distributedCacheManager;
     private CurrencyConversionAdapter adapter;
 
     @BeforeEach
     void setUp() {
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        cacheManager = new ConcurrentMapCacheManager("dollarQuote");
-        adapter = new CurrencyConversionAdapter(builder, PRIMARY_URL, FALLBACK_URL, cacheManager);
+        localCacheManager = new ConcurrentMapCacheManager("dollarQuote");
+        distributedCacheManager = new ConcurrentMapCacheManager("dollarQuote");
+        adapter = new CurrencyConversionAdapter(builder, PRIMARY_URL, FALLBACK_URL, localCacheManager, distributedCacheManager);
     }
 
     @Test
@@ -43,7 +45,9 @@ class CurrencyConversionAdapterTest {
         BigDecimal cotacao = adapter.obterCotacaoUsdParaBrl();
 
         assertThat(cotacao).isEqualByComparingTo("5.1234");
-        assertThat(cacheManager.getCache("dollarQuote").get("USD_BRL", BigDecimal.class))
+        assertThat(localCacheManager.getCache("dollarQuote").get("USD_BRL", BigDecimal.class))
+                .isEqualByComparingTo("5.1234");
+        assertThat(distributedCacheManager.getCache("dollarQuote").get("USD_BRL", BigDecimal.class))
                 .isEqualByComparingTo("5.1234");
         server.verify();
     }
@@ -62,11 +66,23 @@ class CurrencyConversionAdapterTest {
 
     @Test
     void deveRetornarCacheSemChamarApiQuandoCotacaoExiste() {
-        cacheManager.getCache("dollarQuote").put("USD_BRL", new BigDecimal("5.77"));
+        localCacheManager.getCache("dollarQuote").put("USD_BRL", new BigDecimal("5.77"));
 
         BigDecimal cotacao = adapter.obterCotacaoUsdParaBrl();
 
         assertThat(cotacao).isEqualByComparingTo("5.77");
+        server.verify();
+    }
+
+    @Test
+    void deveAquecerCacheLocalQuandoValorExisteSomenteNoRedis() {
+        distributedCacheManager.getCache("dollarQuote").put("USD_BRL", new BigDecimal("5.88"));
+
+        BigDecimal cotacao = adapter.obterCotacaoUsdParaBrl();
+
+        assertThat(cotacao).isEqualByComparingTo("5.88");
+        assertThat(localCacheManager.getCache("dollarQuote").get("USD_BRL", BigDecimal.class))
+                .isEqualByComparingTo("5.88");
         server.verify();
     }
 
