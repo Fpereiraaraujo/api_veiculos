@@ -3,6 +3,17 @@ export type AuthResponse = {
   tokenType: string;
 };
 
+export type VeiculoPayload = {
+  placa: string;
+  marca: string;
+  modelo: string;
+  ano: number;
+  cor: string;
+  precoUsd: number;
+};
+
+export type VeiculoPatchPayload = Partial<VeiculoPayload>;
+
 export type Veiculo = {
   id: string;
   placa: string;

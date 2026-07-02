@@ -1,4 +1,4 @@
-import type { AuthResponse, PageData, RelatorioPorMarca, Veiculo } from './types';
+import type { AuthResponse, PageData, RelatorioPorMarca, Veiculo, VeiculoPatchPayload, VeiculoPayload } from './types';
 
 const API_BASE = '/api';
 
@@ -39,6 +39,44 @@ export async function listarRelatorio(token: string) {
   });
 }
 
+export async function cadastrarVeiculo(token: string, payload: VeiculoPayload) {
+  return request<Veiculo>('/veiculos', {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function atualizarVeiculo(token: string, id: string, payload: VeiculoPayload) {
+  return request<Veiculo>(`/veiculos/${id}`, {
+    method: 'PUT',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function atualizarParcialVeiculo(token: string, id: string, payload: VeiculoPatchPayload) {
+  return request<Veiculo>(`/veiculos/${id}`, {
+    method: 'PATCH',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function removerVeiculo(token: string, id: string) {
+  return request<void>(`/veiculos/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  });
+}
+
 function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` };
+}
+
+function jsonHeaders(token: string) {
+  return {
+    ...authHeaders(token),
+    'Content-Type': 'application/json',
+  };
 }
