@@ -27,27 +27,32 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(VeiculoNotFoundException.class)
     public ResponseEntity<ErrorResponseDTO> handleNotFound(VeiculoNotFoundException ex, HttpServletRequest req) {
+        log.info("recurso nao encontrado em {} {}: {}", req.getMethod(), req.getRequestURI(), ex.getMessage());
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(DuplicatePlacaException.class)
     public ResponseEntity<ErrorResponseDTO> handleDuplicate(DuplicatePlacaException ex, HttpServletRequest req) {
+        log.info("conflito de negocio em {} {}: {}", req.getMethod(), req.getRequestURI(), ex.getMessage());
         return build(HttpStatus.CONFLICT, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(CurrencyConversionException.class)
     public ResponseEntity<ErrorResponseDTO> handleCurrencyUnavailable(CurrencyConversionException ex,
                                                                       HttpServletRequest req) {
+        log.warn("servico de cotacao indisponivel em {} {}: {}", req.getMethod(), req.getRequestURI(), ex.getMessage());
         return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponseDTO> handleBusiness(BusinessException ex, HttpServletRequest req) {
+        log.info("erro de negocio em {} {}: {}", req.getMethod(), req.getRequestURI(), ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req, null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDTO> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
+        log.info("erro de validacao em {} {}", req.getMethod(), req.getRequestURI());
         List<ErrorResponseDTO.FieldErrorDTO> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
                 .map(fe -> new ErrorResponseDTO.FieldErrorDTO(fe.getField(), fe.getDefaultMessage()))
                 .toList();

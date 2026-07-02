@@ -28,7 +28,8 @@ public class CacheConfig {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager("dollarQuote");
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(100)
-                .expireAfterWrite(ttlMinutes, TimeUnit.MINUTES));
+                .expireAfterWrite(ttlMinutes, TimeUnit.MINUTES)
+                .recordStats());
         return cacheManager;
     }
 

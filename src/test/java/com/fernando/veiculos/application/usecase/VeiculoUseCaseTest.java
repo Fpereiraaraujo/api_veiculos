@@ -69,6 +69,30 @@ class VeiculoUseCaseTest {
     }
 
     @Test
+    void deveValidarPaginacaoAntesDeConsultarRepositorio() {
+        PageRequestData.SortData sortInvalido = new PageRequestData.SortData("campoInexistente",
+                PageRequestData.Direction.ASC);
+
+        assertThatThrownBy(() -> new PageRequestData(0, 20, List.of(sortInvalido)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("sort nao permitido para o campo: campoInexistente");
+
+        verifyNoInteractions(veiculoPortOut, currencyConversionPortOut);
+    }
+
+    @Test
+    void deveValidarDadosObrigatoriosNoDominioAntesDeCadastrar() {
+        Veiculo invalido = veiculo("ABC1D23");
+        invalido.setAno(1800);
+
+        assertThatThrownBy(() -> useCase.cadastrar(invalido))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("ano deve estar entre 1900 e 2100");
+
+        verifyNoInteractions(veiculoPortOut, currencyConversionPortOut);
+    }
+
+    @Test
     void deveValidarPatchVazioAntesDeBuscarVeiculo() {
         assertThatThrownBy(() -> useCase.atualizarParcial(UUID.randomUUID(), Veiculo.builder().build()))
                 .isInstanceOf(BusinessException.class)

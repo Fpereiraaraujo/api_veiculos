@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -22,7 +24,14 @@ public class JwtService {
     private final long expirationMinutes;
 
     public JwtService(@Value("${app.jwt.secret}") String secret,
-                      @Value("${app.jwt.expiration-minutes}") long expirationMinutes) {
+                      @Value("${app.jwt.expiration-minutes}") long expirationMinutes,
+                      Environment environment) {
+        if (secret == null || secret.isBlank() || secret.length() < 64) {
+            throw new IllegalStateException("app.jwt.secret deve ter ao menos 64 caracteres");
+        }
+        if (isProd(environment) && secret.startsWith("troque-este-segredo")) {
+            throw new IllegalStateException("JWT_SECRET deve ser configurado em producao");
+        }
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMinutes = expirationMinutes;
     }
@@ -58,5 +67,9 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    private boolean isProd(Environment environment) {
+        return Arrays.asList(environment.getActiveProfiles()).contains("prod");
     }
 }

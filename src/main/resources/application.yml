@@ -22,7 +22,6 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     show-sql: false
     open-in-view: false
@@ -38,6 +37,14 @@ app:
   jwt:
     secret: ${JWT_SECRET:troque-este-segredo-em-producao-nunca-comite-isto-de-verdade-0123456789}
     expiration-minutes: 60
+  security:
+    dev-users:
+      admin:
+        username: ${DEV_ADMIN_USERNAME:admin}
+        password: ${DEV_ADMIN_PASSWORD:admin123}
+      user:
+        username: ${DEV_USER_USERNAME:user}
+        password: ${DEV_USER_PASSWORD:user123}
   currency:
     primary-url: https://economia.awesomeapi.com.br/json/last/USD-BRL
     fallback-url: https://api.frankfurter.app/latest?from=USD&to=BRL
@@ -78,8 +85,14 @@ management:
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
   health:
     redis:
+      enabled: true
+    livenessstate:
+      enabled: true
+    readinessstate:
       enabled: true
 
 logging:

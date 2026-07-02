@@ -9,6 +9,7 @@ import com.fernando.veiculos.domain.exception.BusinessException;
 import com.fernando.veiculos.domain.exception.DuplicatePlacaException;
 import com.fernando.veiculos.domain.exception.VeiculoNotFoundException;
 import com.fernando.veiculos.domain.model.Veiculo;
+import com.fernando.veiculos.domain.service.VeiculoValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +51,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
     @Override
     @Transactional
     public Veiculo cadastrar(Veiculo veiculo) {
+        VeiculoValidator.validarObrigatorio(veiculo);
         String placa = normalizarPlaca(veiculo.getPlaca());
         garantirPlacaDisponivel(null, placa);
 
@@ -65,6 +67,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
     @Override
     @Transactional
     public Veiculo atualizar(UUID id, Veiculo veiculo) {
+        VeiculoValidator.validarObrigatorio(veiculo);
         Veiculo atual = obterVeiculoAtivo(id);
         String placa = normalizarPlaca(veiculo.getPlaca());
         garantirPlacaDisponivel(id, placa);
@@ -77,7 +80,7 @@ public class VeiculoUseCase implements VeiculoPortIn {
     @Override
     @Transactional
     public Veiculo atualizarParcial(UUID id, Veiculo veiculoParcial) {
-        validarPatch(veiculoParcial);
+        VeiculoValidator.validarPatch(veiculoParcial);
         Veiculo atual = obterVeiculoAtivo(id);
 
         if (veiculoParcial.getPlaca() != null) {
@@ -125,19 +128,6 @@ public class VeiculoUseCase implements VeiculoPortIn {
     private void validarRangePreco(BigDecimal minPreco, BigDecimal maxPreco) {
         if (minPreco != null && maxPreco != null && minPreco.compareTo(maxPreco) > 0) {
             throw new BusinessException("minPreco nao pode ser maior que maxPreco");
-        }
-    }
-
-    private void validarPatch(Veiculo veiculoParcial) {
-        boolean vazio = veiculoParcial.getPlaca() == null
-                && veiculoParcial.getMarca() == null
-                && veiculoParcial.getModelo() == null
-                && veiculoParcial.getAno() == null
-                && veiculoParcial.getCor() == null
-                && veiculoParcial.getPrecoUsd() == null;
-
-        if (vazio) {
-            throw new BusinessException("informe ao menos um campo para atualizar");
         }
     }
 

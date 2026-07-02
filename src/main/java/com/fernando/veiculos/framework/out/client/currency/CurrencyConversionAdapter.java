@@ -8,7 +8,9 @@ import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -18,31 +20,49 @@ import java.math.BigDecimal;
 public class CurrencyConversionAdapter implements CurrencyConversionPortOut {
 
     private static final Logger log = LoggerFactory.getLogger(CurrencyConversionAdapter.class);
+    private static final String CACHE_NAME = "dollarQuote";
+    private static final String CACHE_KEY = "USD_BRL";
 
     private final RestClient restClient;
     private final String primaryUrl;
     private final String fallbackUrl;
+    private final CacheManager cacheManager;
 
     public CurrencyConversionAdapter(RestClient.Builder restClientBuilder,
                                      @Value("${app.currency.primary-url}") String primaryUrl,
-                                     @Value("${app.currency.fallback-url}") String fallbackUrl) {
+                                     @Value("${app.currency.fallback-url}") String fallbackUrl,
+                                     @Qualifier("redisCacheManager") CacheManager cacheManager) {
         this.restClient = restClientBuilder.build();
         this.primaryUrl = primaryUrl;
         this.fallbackUrl = fallbackUrl;
+        this.cacheManager = cacheManager;
     }
 
     @Override
     @Retry(name = "currencyApi")
     @CircuitBreaker(name = "currencyApi")
-    @Cacheable(cacheNames = "dollarQuote", key = "'USD_BRL'", cacheManager = "redisCacheManager")
     public BigDecimal obterCotacaoUsdParaBrl() {
+        BigDecimal cotacaoCache = buscarCotacaoNoCache();
+        if (cotacaoCache != null) {
+            return cotacaoCache;
+        }
+
         try {
-            return obterCotacaoAwesomeApi();
+            return salvarNoCache(obterCotacaoAwesomeApi());
         } catch (RuntimeException primaryFailure) {
-            log.warn("falha ao consultar cotacao na AwesomeAPI, tentando fallback Frankfurter");
+            log.warn("falha ao consultar cotacao na AwesomeAPI, tentando fallback Frankfurter: {}",
+                    primaryFailure.getMessage());
+            log.debug("detalhes da falha na AwesomeAPI", primaryFailure);
             try {
-                return obterCotacaoFrankfurter();
+                return salvarNoCache(obterCotacaoFrankfurter());
             } catch (RuntimeException fallbackFailure) {
+                cotacaoCache = buscarCotacaoNoCache();
+                if (cotacaoCache != null) {
+                    log.warn("falha ao consultar APIs de cotacao, retornando valor do cache: {}",
+                            fallbackFailure.getMessage());
+                    log.debug("detalhes da falha nas APIs de cotacao", fallbackFailure);
+                    return cotacaoCache;
+                }
                 throw new CurrencyConversionException("nao foi possivel obter cotacao USD-BRL", fallbackFailure);
             }
         }
@@ -71,5 +91,27 @@ public class CurrencyConversionAdapter implements CurrencyConversionPortOut {
                 .uri(url)
                 .retrieve()
                 .body(JsonNode.class);
+    }
+
+    private BigDecimal buscarCotacaoNoCache() {
+        try {
+            Cache cache = cacheManager.getCache(CACHE_NAME);
+            return cache == null ? null : cache.get(CACHE_KEY, BigDecimal.class);
+        } catch (RuntimeException ex) {
+            log.warn("falha ao consultar cache de cotacao", ex);
+            return null;
+        }
+    }
+
+    private BigDecimal salvarNoCache(BigDecimal cotacao) {
+        try {
+            Cache cache = cacheManager.getCache(CACHE_NAME);
+            if (cache != null) {
+                cache.put(CACHE_KEY, cotacao);
+            }
+        } catch (RuntimeException ex) {
+            log.warn("falha ao gravar cache de cotacao", ex);
+        }
+        return cotacao;
     }
 }
