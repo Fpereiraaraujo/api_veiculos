@@ -49,18 +49,6 @@ Servicos:
 - Metrics: `http://localhost:8080/actuator/metrics`
 - Prometheus: `http://localhost:8080/actuator/prometheus`
 
-## Frontend
-
-O front fica em [`front`](../front) e usa React + TypeScript + Tailwind.
-
-```bash
-cd ../front
-npm install
-npm run dev
-```
-
-O Vite faz proxy de `/api` para `http://localhost:8080`, entao o backend precisa estar rodando junto.
-
 ## Variaveis De Ambiente
 
 | Variavel | Padrao dev | Descricao |
